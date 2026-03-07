@@ -1,0 +1,380 @@
+/* ====================
+   BASE & RESET
+==================== */
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: #f4f1ee;
+  color: #333;
+}
+
+/* ====================
+   LAYOUT
+==================== */
+.container {
+  display: block;
+  height: 100vh;
+}
+
+.main {
+  padding: 80px 20px 20px;
+  min-height: 100vh;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: #f4f1ee;
+}
+
+/* ====================
+   HAMBURGER MENU BUTTON
+==================== */
+.menu-btn {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  z-index: 1100;
+  background: #6F4E37;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.menu-btn.active {
+  background: #8d6e63;  /* slightly lighter when sidebar is open */
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -280px;
+  width: 260px;
+  height: 100%;
+  background: #6F4E37;
+  color: white;
+  padding: 70px 20px 20px;  /* ← increased top padding so title is lower */
+  transition: left 0.35s ease;
+  z-index: 1000;
+  overflow-y: auto;
+  box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+}
+
+.sidebar.open {
+  left: 0;
+}
+
+/* Sidebar header – moved down, no close button */
+.sidebar-header {
+  margin-bottom: 35px;
+  text-align: center;  /* centered for cleaner look */
+}
+
+.sidebar-header h2 {
+  margin: 0;
+  font-size: 1.8rem;
+  letter-spacing: 1px;
+}
+
+/* Overlay – still used to close on outside tap */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s ease;
+  z-index: 999;
+}
+
+.overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Sidebar buttons – same as before, but with auto-close on click */
+.sidebar button {
+  width: 100%;
+  padding: 14px 16px;
+  margin: 8px 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.92);
+  color: #6F4E37;
+  font-weight: 600;
+  font-size: 1.05rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.sidebar button:hover {
+  background: white;
+  transform: translateX(6px);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+/* Fullscreen button */
+.sidebar button.fullscreen-btn {
+  margin-top: 30px;
+  background: #2e7d32 !important;
+  color: white !important;
+}
+
+/* ====================
+   PRODUCT GRID & CARDS
+==================== */
+/* Product grid with proper spacing */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));  /* wider cards = better readability */
+    gap: 24px;                     /* good balance: not too tight, not too spread out */
+    padding: 20px 16px;
+}
+
+/* Individual product card – make sure it doesn't fight the grid */
+.card, .product-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;              /* prevents image corners from bleeding */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Optional: subtle hover effect for better UX */
+.card:hover, .product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+/* Image at top */
+.card img, .product-card img {
+    width: 100%;
+    height: 160px;                 /* slightly taller looks more premium */
+    object-fit: cover;
+}
+
+/* Content inside card */
+.card .content, .product-card .content {
+    padding: 16px;
+    text-align: center;
+}
+
+/* Make quantity input and buttons look intentional */
+.card input[type="number"], .product-card input[type="number"] {
+    width: 60px;
+    padding: 8px;
+    margin: 12px auto 10px;
+    display: block;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+/* Buttons at bottom */
+.card .button-group, .product-card .button-group {
+    padding: 0 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* ====================
+   INVENTORY DASHBOARD
+==================== */
+.ing-item {
+  background: white;
+  padding: 15px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-left: 5px solid #6F4E37;
+}
+
+/* Buttons */
+.btn-use {
+  background: #6F4E37;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-del {
+  background: #ff4d4d;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+/* ====================
+   CART / POS
+==================== */
+.cart-panel {
+  background: #fff;
+  padding: 20px;
+  border-top: 2px solid #6F4E37;
+  margin-top: 30px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px inset #eee;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* ====================
+   FORM INPUTS & TEXTAREA (Add/Replace this block)
+==================== */
+form label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #555;
+  font-size: 1.05rem;
+}
+
+form input[type="text"],
+form input[type="number"],
+form textarea,
+form input[type="file"] {
+  width: 100%;
+  max-width: 450px;               /* Controls overall form width – adjust if needed */
+  padding: 12px 15px;
+  margin-bottom: 18px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+form input[type="text"]:focus,
+form input[type="number"]:focus,
+form textarea:focus {
+  border-color: #6F4E37;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(111, 78, 55, 0.15);
+}
+
+form textarea {
+  min-height: 90px;               /* Enough space but not too tall */
+  resize: vertical;
+}
+
+/* Center placeholders */
+form input::placeholder,
+form textarea::placeholder {
+  text-align: center;
+  color: #aaa;
+  opacity: 1;
+  font-style: italic;
+}
+
+/* File input wrapper for better look */
+form .file-wrapper {
+  margin-bottom: 20px;
+}
+
+form input[type="file"] {
+  padding: 8px;
+  width: auto;
+  max-width: none;
+}
+/* Add this new rule or integrate into your existing form input styles */
+form input.recipe-input {
+  width: 100%;
+  max-width: 450px;
+  padding: 12px 15px;
+  margin-bottom: 10px; /* Slightly less margin than other inputs if you prefer */
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+form input.recipe-input:focus {
+  border-color: #6F4E37;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(111, 78, 55, 0.15);
+}
+/* --- Styles for Category Filter Buttons --- */
+.category-buttons {
+    display: flex;
+    justify-content: center; /* Center the buttons horizontally */
+    gap: 10px; /* Space between buttons */
+    flex-wrap: wrap; /* Allow buttons to wrap to the next line on smaller screens */
+    margin-bottom: 20px;
+    padding: 0 10px; /* Small padding on the sides */
+}
+
+.btn-category {
+    background: #e0e0e0; /* Default background color for inactive buttons */
+    color: #555; /* Default text color for inactive buttons */
+    border: none;
+    padding: 10px 18px;
+    border-radius: 20px; /* Makes buttons look like "pills" */
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.2s ease; /* Smooth transition for hover and active states */
+    flex-shrink: 0; /* Prevents buttons from shrinking if space is tight */
+}
+
+.btn-category:hover {
+    background: #d0d0d0; /* Slightly darker on hover */
+    transform: translateY(-2px); /* Slight lift effect on hover */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Subtle shadow on hover */
+}
+
+.btn-category.active {
+    background: #6F4E37; /* Active background color (your coffee theme color) */
+    color: white; /* Active text color */
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2); /* More prominent shadow for active button */
+}
+
+/* --- (Optional: Ensure recipe input styles are present) --- */
+/* This was from the previous step. Make sure it's in your style.css as well */
+form input.recipe-input {
+  width: 100%;
+  max-width: 450px;
+  padding: 12px 15px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+
+form input.recipe-input:focus {
+  border-color: #6F4E37;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(111, 78, 55, 0.15);
+}
