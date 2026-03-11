@@ -2,11 +2,7 @@ let db;
 let cart = [];
 const SHOP_NAME = "COFFEE STOCK APP";
 
-// IMPORTANT: If you already have data in your IndexedDB,
-// you MUST increment this version number (e.g., from 11 to 12)
-// for the `onupgradeneeded` function to run and update the 'products' store schema
-// to include the 'category' field.
-let request = indexedDB.open("CoffeeStockDB", 12); // <-- MAKE SURE THIS IS A NEW, HIGHER NUMBER THAN YOUR LAST VERSION
+let request = indexedDB.open("CoffeeStockDB", 12);
 
 request.onupgradeneeded = function (e) {
     db = e.target.result;
@@ -53,9 +49,10 @@ function loadIngredients() {
                         <strong style="font-size: 1.4rem;">${item.name}</strong> <small>(${item.category})</small><br>
                         <span>Stock: <strong>${item.totalStock}</strong> ${item.baseUnit} | Packs: <strong>${Math.floor(packsRemaining)}</strong></span>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                         <input type="number" style="width:80px; padding: 8px; font-size: 1rem;" id="use-${item.id}" placeholder="${item.baseUnit}">
                         <button class="btn-use" style="padding: 8px 15px;" onclick="useStock(${item.id})">Use</button>
+                        <button class="btn-use" style="padding: 8px 15px; background:#2e7d32;" onclick="restockIngredient(${item.id})">Restock</button>
                         <button class="btn-del" style="padding: 8px 15px;" onclick="deleteIngredient(${item.id})">Delete</button>
                     </div>
                 </div>`;
@@ -93,6 +90,40 @@ function useStock(id) {
         });
 
         loadIngredients();
+    };
+}
+
+// --- NEW: RESTOCK INGREDIENT ---
+function restockIngredient(id) {
+    let amount = prompt("Enter quantity to restock:");
+    amount = parseFloat(amount);
+
+    if (!amount || amount <= 0) {
+        return alert("Enter a valid restock quantity.");
+    }
+
+    let tx = db.transaction(["ingredients"], "readwrite");
+    let store = tx.objectStore("ingredients");
+    let request = store.get(id);
+
+    request.onsuccess = function () {
+        let item = request.result;
+        item.totalStock += amount;
+
+        if (item.packSize && item.packSize > 0) {
+            item.packCount = item.totalStock / item.packSize;
+        }
+
+        store.put(item);
+    };
+
+    tx.oncomplete = function () {
+        alert("Ingredient restocked successfully!");
+        loadIngredients();
+    };
+
+    tx.onerror = function (e) {
+        alert("Error restocking ingredient: " + e.target.error.message);
     };
 }
 
@@ -150,29 +181,87 @@ function addCoffeeIngredient() {
 
 function showAddBreakfast() {
     document.getElementById("mainContent").innerHTML = `
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70vh; font-size: 1.3rem;">
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; font-size: 1.3rem;">
             <h2 style="font-size: 2rem; margin-bottom: 20px;">Add Breakfast Ingredient</h2>
-            <select id="type" style="width: 380px; padding: 15px; margin-bottom: 15px; font-size: 1.1rem;">
+
+            <select id="type" onchange="toggleBreakfastFields()" style="width: 380px; padding: 15px; margin-bottom: 15px; font-size: 1.1rem;">
                 <option value="eggs">Eggs (Tray=24)</option>
                 <option value="spam">Spam (Can=10)</option>
+                <option value="manual">Manual Ingredient</option>
             </select>
-            <input id="packCount" type="number" style="width: 350px; padding: 15px; margin-bottom: 20px; font-size: 1.1rem;" placeholder="Number of Packs">
+
+            <div id="presetFields" style="display: block; width: 100%; text-align: center;">
+                <input id="packCount" type="number" style="width: 350px; padding: 15px; margin-bottom: 20px; font-size: 1.1rem;" placeholder="Number of Packs">
+            </div>
+
+            <div id="manualFields" style="display: none; width: 100%; text-align: center;">
+                <input id="manualName" type="text" style="width: 350px; padding: 15px; margin-bottom: 15px; font-size: 1.1rem;" placeholder="Ingredient Name">
+                <input id="manualPcs" type="number" style="width: 350px; padding: 15px; margin-bottom: 15px; font-size: 1.1rem;" placeholder="PCS">
+                <input id="manualPacks" type="number" style="width: 350px; padding: 15px; margin-bottom: 20px; font-size: 1.1rem;" placeholder="Packs">
+            </div>
+
             <button class="btn-use" style="width: 380px; padding: 15px; font-size: 1.2rem;" onclick="addBreakfastIngredient()">Save Ingredient</button>
         </div>`;
 }
 
-function addBreakfastIngredient() {
-    let name, packSize, baseUnit;
+function toggleBreakfastFields() {
     let type = document.getElementById("type").value;
-    let packCount = parseFloat(document.getElementById("packCount").value);
-    if (!packCount) return alert("Enter pack count");
+    let presetFields = document.getElementById("presetFields");
+    let manualFields = document.getElementById("manualFields");
 
-    if (type === "eggs") { name = "Eggs"; packSize = 24; baseUnit = "egg"; }
-    else { name = "Spam"; packSize = 10; baseUnit = "slice"; }
+    if (type === "manual") {
+        presetFields.style.display = "none";
+        manualFields.style.display = "block";
+    } else {
+        presetFields.style.display = "block";
+        manualFields.style.display = "none";
+    }
+}
+
+function addBreakfastIngredient() {
+    let name, packSize, baseUnit, packCount;
+    let type = document.getElementById("type").value;
+
+    if (type === "eggs") {
+        packCount = parseFloat(document.getElementById("packCount").value);
+        if (!packCount || packCount <= 0) return alert("Enter pack count");
+        name = "Eggs";
+        packSize = 24;
+        baseUnit = "egg";
+    }
+    else if (type === "spam") {
+        packCount = parseFloat(document.getElementById("packCount").value);
+        if (!packCount || packCount <= 0) return alert("Enter pack count");
+        name = "Spam";
+        packSize = 10;
+        baseUnit = "slice";
+    }
+    else if (type === "manual") {
+        name = document.getElementById("manualName").value.trim();
+        let pcs = parseFloat(document.getElementById("manualPcs").value);
+        let packs = parseFloat(document.getElementById("manualPacks").value);
+
+        if (!name) return alert("Enter ingredient name");
+        if (!pcs || pcs <= 0) return alert("Enter valid PCS");
+        if (!packs || packs <= 0) return alert("Enter valid packs");
+
+        packSize = pcs;
+        packCount = packs;
+        baseUnit = "pcs";
+    }
+
     let totalStock = packSize * packCount;
     let tx = db.transaction(["ingredients"], "readwrite");
     tx.objectStore("ingredients").add({ name, packSize, packCount, totalStock, baseUnit, category: "breakfast" });
-    tx.oncomplete = showDashboard;
+
+    tx.oncomplete = function () {
+        alert("Breakfast ingredient added!");
+        showDashboard();
+    };
+
+    tx.onerror = function (e) {
+        alert("Error: " + e.target.error.message);
+    };
 }
 
 // --- PRODUCT MANAGEMENT ---
@@ -233,15 +322,15 @@ function addRecipeInputField() {
 function addProduct() {
     const name = document.getElementById("pName").value;
     const price = parseFloat(document.getElementById("pPrice").value);
-    const category = document.getElementById("pCategory").value; // Get the selected category
+    const category = document.getElementById("pCategory").value;
     const desc = document.getElementById("pDesc").value;
     const fileInput = document.getElementById("pImage");
 
-    if (!name ||!price) {
+    if (!name || !price) {
         alert("Please enter product name and price.");
         return;
     }
-    if (!category) { // Ensure a category is selected
+    if (!category) {
         alert("Please select a product category.");
         return;
     }
@@ -257,7 +346,7 @@ function addProduct() {
             if (parts.length === 2) {
                 const ingName = parts[0].trim().toLowerCase();
                 const amount = parseFloat(parts[1].trim());
-                if (ingName &&!isNaN(amount) && amount > 0) {
+                if (ingName && !isNaN(amount) && amount > 0) {
                     recipe[ingName] = (recipe[ingName] || 0) + amount;
                 } else {
                     alert(`Invalid recipe format for '${value}'. Please use 'Ingredient:Amount' (e.g., 'Coffee:10') with a valid positive amount.`);
@@ -277,24 +366,23 @@ function addProduct() {
     if (fileInput.files && fileInput.files[0]) {
         let reader = new FileReader();
         reader.onload = function(e) {
-            saveProductToDB(name, price, category, desc, e.target.result, recipe); // Pass category
+            saveProductToDB(name, price, category, desc, e.target.result, recipe);
         };
         reader.readAsDataURL(fileInput.files[0]);
     } else {
-        saveProductToDB(name, price, category, desc, "https://via.placeholder.com/150", recipe); // Pass category
+        saveProductToDB(name, price, category, desc, "https://via.placeholder.com/150", recipe);
     }
 }
 
-function saveProductToDB(name, price, category, description, imageData, recipe) { // Added category parameter
+function saveProductToDB(name, price, category, description, imageData, recipe) {
     let tx = db.transaction(["products"], "readwrite");
     let store = tx.objectStore("products");
     
-    // Add the new product with its recipe AND category
-    store.add({ name, price, category, description, image: imageData, recipe: recipe }) // Save category
+    store.add({ name, price, category, description, image: imageData, recipe: recipe })
     .onsuccess = function() {
-            alert("Product saved successfully!");
-            showProductList();
-        };
+        alert("Product saved successfully!");
+        showProductList();
+    };
 
     tx.onerror = function(e) {
         alert("Error saving product: " + e.target.error.message);
@@ -302,16 +390,24 @@ function saveProductToDB(name, price, category, description, imageData, recipe) 
 }
 
 // --- MENU & POS SYSTEM ---
-// Modified showProductList to include category buttons
 function showProductList() {
     document.getElementById("mainContent").innerHTML = `
         <h2>Menu</h2>
+        <div style="text-align:center; margin-bottom: 15px;">
+            <input 
+                type="text" 
+                id="productSearch" 
+                placeholder="Search products..." 
+                oninput="filterProducts()"
+                style="width: 300px; max-width: 90%; padding: 10px; font-size: 1rem; border: 1px solid #ccc; border-radius: 8px;"
+            >
+        </div>
         <div class="category-buttons" style="margin-bottom: 20px; text-align: center;">
-            <button class="btn-category active" onclick="loadProducts('all')">All</button>
-            <button class="btn-category" onclick="loadProducts('coffee')">Coffee</button>
-            <button class="btn-category" onclick="loadProducts('pastries')">Pastries</button>
-            <button class="btn-category" onclick="loadProducts('breakfast')">Breakfast</button>
-            <button class="btn-category" onclick="loadProducts('other')">Other</button>
+            <button class="btn-category active" data-category="all" onclick="loadProducts('all')">All</button>
+            <button class="btn-category" data-category="coffee" onclick="loadProducts('coffee')">Coffee</button>
+            <button class="btn-category" data-category="pastries" onclick="loadProducts('pastries')">Pastries</button>
+            <button class="btn-category" data-category="breakfast" onclick="loadProducts('breakfast')">Breakfast</button>
+            <button class="btn-category" data-category="other" onclick="loadProducts('other')">Other</button>
         </div>
         <div id="productContainer" class="product-grid"></div>
         <div class="cart-panel">
@@ -331,22 +427,32 @@ function showProductList() {
                 </div>
             </div>
         </div>`;
-    loadProducts('all'); // Load all products by default
+    loadProducts('all');
 }
 
-// Modified loadProducts to filter by category
-function loadProducts(category = 'all') { // Added category parameter
+function filterProducts() {
+    const activeButton = document.querySelector('.btn-category.active');
+    const category = activeButton ? activeButton.getAttribute('data-category') : 'all';
+    loadProducts(category);
+}
+
+function loadProducts(category = 'all') {
     let tx = db.transaction(["products"], "readonly");
     let request = tx.objectStore("products").getAll();
     request.onsuccess = function () {
         let container = document.getElementById("productContainer");
         container.innerHTML = "";
         const allProducts = request.result;
+        const searchValue = (document.getElementById("productSearch")?.value || "").toLowerCase().trim();
 
-        // Filter products based on selected category
-        const filteredProducts = allProducts.filter(p => 
-            category === 'all' || p.category === category
-        );
+        const filteredProducts = allProducts.filter(p => {
+            const matchesCategory = category === 'all' || p.category === category;
+            const matchesSearch =
+                !searchValue ||
+                p.name.toLowerCase().includes(searchValue) ||
+                (p.description || "").toLowerCase().includes(searchValue);
+            return matchesCategory && matchesSearch;
+        });
 
         filteredProducts.forEach(p => {
             container.innerHTML += `
@@ -367,13 +473,16 @@ function loadProducts(category = 'all') { // Added category parameter
     </div>`;
         });
 
-        // Update active class for category buttons
         document.querySelectorAll('.btn-category').forEach(button => {
             button.classList.remove('active');
-            if (button.onclick.toString().includes(`'${category}'`)) {
+            if (button.getAttribute('data-category') === category) {
                 button.classList.add('active');
             }
         });
+
+        if (filteredProducts.length === 0) {
+            container.innerHTML = `<p style="text-align:center; width:100%;">No products found.</p>`;
+        }
     };
 }
 
@@ -381,7 +490,7 @@ function calculateChange() {
     let total = parseFloat(document.getElementById("total").innerText) || 0;
     let cash = parseFloat(document.getElementById("cashReceived").value) || 0;
     let change = cash - total;
-    document.getElementById("changeAmount").innerText = change >= 0? change.toFixed(2) : "0.00";
+    document.getElementById("changeAmount").innerText = change >= 0 ? change.toFixed(2) : "0.00";
 }
 
 function prepareAddToCart(id, name, price) {
@@ -417,7 +526,7 @@ function renderCart() {
 }
 
 function removeItem(id) {
-    cart = cart.filter(item => item.id!== id);
+    cart = cart.filter(item => item.id !== id);
     renderCart();
 }
 
@@ -430,13 +539,12 @@ function deleteProduct(id) {
     if (confirm("Delete this product?")) {
         let tx = db.transaction(["products"], "readwrite");
         tx.objectStore("products").delete(id);
-        tx.oncomplete = showProductList; // Reload the product list after deletion
+        tx.oncomplete = showProductList;
     }
 }
 
 // --- CHECKOUT & RECEIPT ---
 function checkout() {
-    // Check if the cart is empty
     if (cart.length === 0) {
         alert("Your cart is empty. Please add items before checking out.");
         return;
@@ -453,28 +561,24 @@ function checkout() {
         return;
     }
 
-    // Use a transaction that covers all necessary stores
-    const tx = db.transaction(["sales", "ingredients", "products"], "readwrite"); 
+    const tx = db.transaction(["sales", "ingredients", "products"], "readwrite");
     const salesStore = tx.objectStore("sales");
     const ingStore = tx.objectStore("ingredients");
     const productStore = tx.objectStore("products");
 
-    // Prepare sale data
     const saleData = {
         customer: customer,
-        items: JSON.parse(JSON.stringify(cart)), // Deep copy cart items for the sale record
+        items: JSON.parse(JSON.stringify(cart)),
         total: total,
         date: new Date().toISOString().split('T')[0],
         timestamp: new Date()
     };
 
-    // 1. Add the sale record
     const addSaleRequest = salesStore.add(saleData);
 
     addSaleRequest.onsuccess = function (event) {
         console.log("Sale saved successfully! ID:", event.target.result);
 
-        // 2. Process ingredient deductions for each item in the cart
         const deductionPromises = cart.map(cartItem => {
             return new Promise((resolve, reject) => {
                 const getProductRequest = productStore.get(cartItem.id);
@@ -482,15 +586,15 @@ function checkout() {
                 getProductRequest.onsuccess = function (event) {
                     const product = event.target.result;
 
-                    if (!product ||!product.recipe || Object.keys(product.recipe).length === 0) {
+                    if (!product || !product.recipe || Object.keys(product.recipe).length === 0) {
                         console.warn(`Product '${cartItem.name}' (ID: ${cartItem.id}) has no defined recipe for deductions.`);
-                        return resolve(); // No recipe, no deduction needed for this item
+                        return resolve();
                     }
 
                     const recipe = product.recipe;
                     const ingredientDeductionPromises = Object.entries(recipe).map(([ingName, amountPerUnit]) => {
                         return new Promise((ingResolve, ingReject) => {
-                            const getIngredientRequest = ingStore.openCursor(); // Use cursor to find by name
+                            const getIngredientRequest = ingStore.openCursor();
 
                             getIngredientRequest.onsuccess = function (event) {
                                 const cursor = event.target.result;
@@ -501,20 +605,19 @@ function checkout() {
 
                                         if (ingredient.totalStock < totalAmountToDeduct) {
                                             alert(`Not enough '${ingredient.name}' for '${cartItem.name}'! Required: ${totalAmountToDeduct} ${ingredient.baseUnit || 'units'}, Available: ${ingredient.totalStock} ${ingredient.baseUnit || 'units'}.`);
-                                            // You might want to stop the checkout or mark this item as problematic
                                             return ingReject(new Error(`Insufficient stock for ${ingredient.name}`));
                                         }
 
                                         ingredient.totalStock -= totalAmountToDeduct;
-                                        cursor.update(ingredient).onsuccess = ingResolve;
-                                        cursor.update(ingredient).onerror = ingReject;
+                                        const updateRequest = cursor.update(ingredient);
+                                        updateRequest.onsuccess = ingResolve;
+                                        updateRequest.onerror = ingReject;
                                     } else {
-                                        cursor.continue(); // Move to the next ingredient
+                                        cursor.continue();
                                     }
                                 } else {
-                                    // Ingredient not found in inventory
                                     console.warn(`Ingredient '${ingName}' not found in inventory for product '${cartItem.name}'.`);
-                                    ingResolve(); // Resolve, but log a warning
+                                    ingResolve();
                                 }
                             };
                             getIngredientRequest.onerror = ingReject;
@@ -522,31 +625,28 @@ function checkout() {
                     });
 
                     Promise.all(ingredientDeductionPromises)
-                    .then(resolve)
-                    .catch(reject); // Propagate rejection if any ingredient deduction fails
+                        .then(resolve)
+                        .catch(reject);
                 };
-                getProductRequest.onerror = reject; // Propagate product retrieval error
+                getProductRequest.onerror = reject;
             });
         });
 
-        // 3. After all deductions are attempted, print receipt or handle errors
         Promise.all(deductionPromises)
         .then(() => {
-                tx.oncomplete = () => { // Only print receipt if the whole transaction completes
-                    printReceipt(customer, cash, total);
-                };
-                tx.onerror = (e) => { // If the transaction fails during deductions
-                    console.error("Transaction failed during deductions:", e.target.error);
-                    alert("An error occurred during stock deduction. Sale was saved, but inventory might be inaccurate. Please check console.");
-                };
-            })
+            tx.oncomplete = () => {
+                printReceipt(customer, cash, total);
+            };
+            tx.onerror = (e) => {
+                console.error("Transaction failed during deductions:", e.target.error);
+                alert("An error occurred during stock deduction. Sale was saved, but inventory might be inaccurate. Please check console.");
+            };
+        })
         .catch(error => {
-                // If any promise in deductionPromises rejected, this catch block runs.
-                // The transaction will automatically abort if an error occurred in one of the sub-requests.
-                console.error("Checkout process aborted due to an error:", error);
-                alert(`Checkout failed: ${error.message}. Please check inventory and try again.`);
-                tx.abort(); // Explicitly abort if not already
-            });
+            console.error("Checkout process aborted due to an error:", error);
+            alert(`Checkout failed: ${error.message}. Please check inventory and try again.`);
+            tx.abort();
+        });
 
     };
 
@@ -583,7 +683,7 @@ function printReceipt(customer, cash, total) {
     document.getElementById("cashReceived").value = "";
 }
 
-// --- REPORTS (SURGICAL UPDATE FOR LOGIC) ---
+// --- REPORTS ---
 function showReports() {
     document.getElementById("mainContent").innerHTML = `
         <h2>Reports</h2>
@@ -595,14 +695,52 @@ function showReports() {
         <div id="reportResult" style="margin-top:20px; background:white; padding:20px;"></div>`;
 }
 
+// --- NEW: ROBUST DATE PARSER ---
+function parseReportDate(dateStr, isEndOfDay = false) {
+    if (!dateStr) return null;
+
+    let year, month, day;
+
+    if (dateStr.includes("-")) {
+        const parts = dateStr.split("-");
+        if (parts[0].length === 4) {
+            year = parseInt(parts[0], 10);
+            month = parseInt(parts[1], 10) - 1;
+            day = parseInt(parts[2], 10);
+        } else {
+            month = parseInt(parts[0], 10) - 1;
+            day = parseInt(parts[1], 10);
+            year = parseInt(parts[2], 10);
+        }
+    } else if (dateStr.includes("/")) {
+        const parts = dateStr.split("/");
+        month = parseInt(parts[0], 10) - 1;
+        day = parseInt(parts[1], 10);
+        year = parseInt(parts[2], 10);
+    } else {
+        return null;
+    }
+
+    if (isEndOfDay) {
+        return new Date(year, month, day, 23, 59, 59, 999);
+    }
+    return new Date(year, month, day, 0, 0, 0, 0);
+}
+
 function generateReport(type) {
     let from = document.getElementById("dateFrom").value;
     let to = document.getElementById("dateTo").value;
 
-    console.log("Report requested:", { type, from, to });
-
-    if (!from ||!to) {
+    if (!from || !to) {
         alert("Select date range");
+        return;
+    }
+
+    const fromDate = parseReportDate(from, false);
+    const toDate = parseReportDate(to, true);
+
+    if (!fromDate || !toDate) {
+        alert("Invalid date format.");
         return;
     }
 
@@ -611,23 +749,16 @@ function generateReport(type) {
 
     request.onsuccess = function () {
         let allSales = request.result;
-        console.log("All sales in DB:", allSales);
 
         let filtered = allSales.filter(s => {
-            let saleDate = s.date;
-            console.log("Checking sale date:", saleDate, "against", from, "to", to);
-            let saleDateObj = new Date(saleDate);
-            let fromObj = new Date(from);
-            let toObj = new Date(to);
-            return saleDateObj >= fromObj && saleDateObj <= toObj;
+            let saleDateObj = parseReportDate(s.date, false);
+            return saleDateObj && saleDateObj >= fromDate && saleDateObj <= toDate;
         });
-
-        console.log("Filtered sales for report:", filtered);
 
         if (filtered.length === 0) {
             document.getElementById("reportResult").innerHTML = `
                 <p>No sales found in this date range.</p>
-                <p>Debug info: ${allSales.length} total sales in DB. Check console for details.</p>`;
+                <p>Debug info: ${allSales.length} total sales in DB.</p>`;
             return;
         }
 
@@ -693,11 +824,13 @@ function renderIncomeReport(data, from, to) {
 function renderUsageReport(salesData, from, to) {
     let usageSummary = {};
 
-    // Need to get all ingredients and products first for lookup
     const tx = db.transaction(["ingredients", "products", "usages"], "readonly");
     const ingredientStore = tx.objectStore("ingredients");
     const productStore = tx.objectStore("products");
     const usageStore = tx.objectStore("usages");
+
+    const fromDate = parseReportDate(from, false);
+    const toDate = parseReportDate(to, true);
 
     let allIngredients = [];
     ingredientStore.getAll().onsuccess = function(event) {
@@ -708,7 +841,6 @@ function renderUsageReport(salesData, from, to) {
     productStore.getAll().onsuccess = function(event) {
         allProducts = event.target.result;
 
-        // Aggregate from sales (using embedded product recipes)
         salesData.forEach(sale => {
             sale.items.forEach(cartItem => {
                 const product = allProducts.find(p => p.id === cartItem.id);
@@ -724,16 +856,12 @@ function renderUsageReport(salesData, from, to) {
             });
         });
 
-        // Aggregate from manual usages
         const usageRequest = usageStore.getAll();
         usageRequest.onsuccess = function() {
             const allUsages = usageRequest.result;
             const filteredUsages = allUsages.filter(u => {
-                const usageDate = new Date(u.date);
-                const fromDate = new Date(from);
-                const toDate = new Date(to);
-                // Ensure the usage date is within the selected range (inclusive)
-                return usageDate >= fromDate && usageDate <= toDate;
+                const usageDate = parseReportDate(u.date, false);
+                return usageDate && usageDate >= fromDate && usageDate <= toDate;
             });
 
             filteredUsages.forEach(usage => {
@@ -741,7 +869,6 @@ function renderUsageReport(salesData, from, to) {
                 usageSummary[ing] = (usageSummary[ing] || 0) + usage.amount;
             });
 
-            // Now build the HTML report
             if (Object.keys(usageSummary).length === 0) {
                 document.getElementById("reportResult").innerHTML = "<p>No ingredient usage detected in this period.</p>";
                 return;
@@ -762,7 +889,7 @@ function renderUsageReport(salesData, from, to) {
 
             for (const ingName in usageSummary) {
                 const ingredientData = allIngredients.find(i => i.name.toLowerCase() === ingName);
-                const unit = ingredientData? ingredientData.baseUnit : "units"; // Use the actual unit from inventory
+                const unit = ingredientData ? ingredientData.baseUnit : "units";
 
                 html += `
                     <tr>
@@ -828,9 +955,10 @@ function toggleFullscreen() {
         if (elem.requestFullscreen) elem.requestFullscreen();
         else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
     } else {
-        if (document.exitFullscreen) elem.exitFullscreen();
+        if (document.exitFullscreen) document.exitFullscreen();
     }
 }
+
 // Menu toggle logic. Don't touch.
 document.addEventListener('DOMContentLoaded', () => {
   const menuToggle = document.getElementById('menuToggle');
@@ -840,13 +968,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function toggleMenu() {
     const isOpen = sidebar.classList.toggle('open');
     overlay.classList.toggle('active', isOpen);
-    menuToggle.classList.toggle('active', isOpen); // optional: change button color when open
+    menuToggle.classList.toggle('active', isOpen);
   }
 
   menuToggle.addEventListener('click', toggleMenu);
   overlay.addEventListener('click', toggleMenu);
 
-  // Menu sidebar logic
   const navButtons = sidebar.querySelectorAll('button');
   navButtons.forEach(btn => {
     btn.addEventListener('click', () => {
